@@ -1,0 +1,20 @@
+{
+  "name": "mindpalace-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI agent for MindPalace: enriches, organizes, and answers questions over stored items.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "palace": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.74.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

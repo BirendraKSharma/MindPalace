@@ -1,0 +1,24 @@
+# Built artifacts
+node_modules/
+target/
+dist/
+*.zip
+*.tar.gz
+
+# Logs
+*.log
+ai.log
+search.log
+debug.log
+
+# Environment / local config
+.env
+.env.local
+
+# User data (palace + vault — never commit)
+agent/data/
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+.turbo/

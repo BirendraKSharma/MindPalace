@@ -51,6 +51,45 @@ $dataFile = Ask "Where should your palace live (palace.json)" $dataDefault
 $hotkey = Ask "Global open/hide hotkey" "Ctrl+Shift+Space"
 $autostart = Confirm-Yes "Start MindPalace automatically at login" 'Y'
 
+# ── AI backend selection ───────────────────────────────────────────────
+$AI_BACKEND = "off"
+$AI_COMMAND = ""
+$AI_MODEL = ""
+if (-not $Defaults) {
+    Write-Host ""
+    Write-Host "AI backends found on this system:"
+    $found = @()
+    foreach ($name in @("claude","codex","opencode","ollama")) {
+        if (Get-Command $name -ErrorAction SilentlyContinue) {
+            $found += $name
+            Write-Host "  $($found.Count}) $name"
+        }
+    }
+    Write-Host "  0) none (AI off — enable later from the titlebar button)"
+    Write-Host "  c) custom (enter your own AI command)"
+    $aiChoice = Read-Host "Configure AI backend [0]"
+    if ([string]::IsNullOrWhiteSpace($aiChoice)) { $aiChoice = "0" }
+    switch ($aiChoice) {
+        "0" { $AI_BACKEND = "off" }
+        "c" { 
+            $AI_BACKEND = "custom"
+            $AI_COMMAND = Read-Host "Custom AI command (argv JSON, e.g. [""C:\path\opencode.exe"",""run"",""{prompt}""])"
+        }
+        default {
+            $idx = [int]$aiChoice - 1
+            if ($idx -ge 0 -and $idx -lt $found.Count) {
+                $AI_BACKEND = $found[$idx]
+                if ($AI_BACKEND -eq "ollama") {
+                    $AI_MODEL = Read-Host "Ollama model (e.g. qwen2.5:3b)"
+                    if ([string]::IsNullOrWhiteSpace($AI_MODEL)) { $AI_MODEL = "qwen2.5:3b" }
+                }
+            } else {
+                $AI_BACKEND = "off"
+            }
+        }
+    }
+}
+
 # ── extract the embedded setup exe ───────────────────────────────────
 $raw = [IO.File]::ReadAllText($PSCommandPath)
 $marker = '<# __PAY' + 'LOAD__'   # split so this line never matches itself
@@ -83,6 +122,9 @@ if (Test-Path $configPath) {
 if ($null -eq $config) { $config = New-Object PSObject }
 $config | Add-Member -NotePropertyName hotkey -NotePropertyValue $hotkey -Force
 $config | Add-Member -NotePropertyName autostart -NotePropertyValue ([bool]$autostart) -Force
+$config | Add-Member -NotePropertyName ai -NotePropertyValue $AI_BACKEND -Force
+if ($AI_COMMAND) { $config | Add-Member -NotePropertyName aiCommand -NotePropertyValue $AI_COMMAND -Force }
+if ($AI_MODEL) { $config | Add-Member -NotePropertyName aiModel -NotePropertyValue $AI_MODEL -Force }
 # WriteAllText = UTF-8 without BOM (the app's JSON parser rejects a BOM)
 [IO.File]::WriteAllText($configPath, (ConvertTo-Json $config))
 

@@ -208,6 +208,47 @@ if [ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ] || [ -d "$HYPR_DIR" ]; then
   fi
 fi
 
+# ── AI backend selection ───────────────────────────────────────────────
+AI_BACKEND="off"
+AI_COMMAND=""
+AI_MODEL=""
+if [ "$DEFAULTS" = 1 ]; then
+  AI_BACKEND="off"   # privacy default: AI stays off until user connects manually
+else
+  echo
+  echo "AI backends found on this system:"
+  FOUND=()
+  for name in claude codex opencode ollama; do
+    if command -v "$name" >/dev/null 2>&1; then
+      FOUND+=("$name")
+      echo "  ${#FOUND[@]}) $name"
+    fi
+  done
+  echo "  0) none (AI off — enable later from the titlebar button)"
+  echo "  c) custom (enter your own AI command)"
+  read -r -p "Configure AI backend [0]: " AI_CHOICE
+  AI_CHOICE=${AI_CHOICE:-0}
+  case "$AI_CHOICE" in
+    0) AI_BACKEND="off" ;;
+    c|C)
+      read -r -p "Custom AI command (argv JSON, e.g. [\"/usr/bin/opencode\",\"run\",\"{prompt}\"]): " AI_COMMAND
+      AI_BACKEND="custom"
+      ;;
+    *)
+      idx=$((AI_CHOICE - 1))
+      if [ "$idx" -ge 0 ] && [ "$idx" -lt "${#FOUND[@]}" ]; then
+        AI_BACKEND="${FOUND[$idx]}"
+        if [ "$AI_BACKEND" = "ollama" ]; then
+          read -r -p "Ollama model (e.g. qwen2.5:3b): " AI_MODEL
+          AI_MODEL=${AI_MODEL:-qwen2.5:3b}
+        fi
+      else
+        AI_BACKEND="off"
+      fi
+      ;;
+  esac
+fi
+
 DATA_DIR=$(dirname "$DATA_FILE")
 BIN="$BIN_DIR/mindpalace"
 
@@ -262,19 +303,33 @@ EOF
 # existing config.json — a reinstall must never wipe the user's keys
 # (ai, searchUrl, theme, window, ...).
 if [ "$DRYRUN" = 1 ]; then
-  note "dry-run: merge hotkey/autostart/window into $DATA_DIR/config.json"
+  note "dry-run: merge hotkey/autostart/window/ai into $DATA_DIR/config.json"
 elif [ -f "$DATA_DIR/config.json" ] && command -v jq >/dev/null 2>&1; then
+  if [ "$AI_BACKEND" = "custom" ]; then
+    AI_CMD_JSON="$AI_COMMAND"
+  else
+    AI_CMD_JSON="[]"
+  fi
   jq --arg hk "$HOTKEY" --argjson as "$AUTOSTART" --argjson w "$WIN_W" --argjson h "$WIN_H" \
-    '. + {hotkey: $hk, autostart: $as, window: {width: $w, height: $h}}' \
-    "$DATA_DIR/config.json" > "$DATA_DIR/config.json.tmp" && mv "$DATA_DIR/config.json.tmp" "$DATA_DIR/config.json"
+     --arg ai "$AI_BACKEND" --argjson ac "$AI_CMD_JSON" --arg am "$AI_MODEL" \
+     '. + {hotkey: $hk, autostart: $as, window: {width: $w, height: $h}, ai: $ai, aiCommand: $ac, aiModel: $am}' \
+     "$DATA_DIR/config.json" > "$DATA_DIR/config.json.tmp" && mv "$DATA_DIR/config.json.tmp" "$DATA_DIR/config.json"
 elif [ -f "$DATA_DIR/config.json" ]; then
   warn "config.json exists and jq is missing — leaving it untouched; set \"hotkey\": \"$HOTKEY\" yourself if you changed it"
 else
+  if [ "$AI_BACKEND" = "custom" ]; then
+    AI_CMD_JSON="$AI_COMMAND"
+  else
+    AI_CMD_JSON="[]"
+  fi
   write_file "$DATA_DIR/config.json" <<EOF
 {
   "hotkey": "$HOTKEY",
   "autostart": $AUTOSTART,
-  "window": { "width": $WIN_W, "height": $WIN_H }
+  "window": { "width": $WIN_W, "height": $WIN_H },
+  "ai": "$AI_BACKEND",
+  "aiCommand": $AI_CMD_JSON,
+  "aiModel": "$AI_MODEL"
 }
 EOF
 fi

@@ -57,7 +57,7 @@ What it does: downloads the source, builds with Rust + Node, installs the app to
 
 AI is off by default. Connect it from the ✦ titlebar button.
 
-The app finds `claude`, `codex`, `opencode`, or `ollama` on `PATH`, or you can use a `custom` command in `config.json`:
+On first install, the Linux/Windows installer detects which AI CLIs you have (`claude`, `codex`, `opencode`, `ollama`) and lets you choose one — it no longer defaults to claude. You can also use a `custom` command in `config.json`:
 
 ```json
 {

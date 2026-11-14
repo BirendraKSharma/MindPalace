@@ -90,6 +90,7 @@ export default function App() {
   const [buffer, setBuffer] = useState({ key: "new", initial: "" });
   const [status, setStatus] = useState<string>("");
   const [ai, setAi] = useState<AiStatus | null>(null);
+  const [aiConnected, setAiConnected] = useState(false);
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
   const [dragging, setDragging] = useState(false);
   const [sel, setSel] = useState(0);
@@ -173,8 +174,9 @@ export default function App() {
 
   async function toggleAi() {
     try {
-      if (ai?.backend) {
+      if (aiConnected) {
         applyAiStatus(await invoke<AiStatus>("ai_set", { backend: false }));
+        setAiConnected(false);
         setStatus("AI off");
         return;
       }
@@ -184,9 +186,13 @@ export default function App() {
         setStatus("no AI CLI found (claude / codex / opencode / ollama)");
         return;
       }
-      const s = await invoke<AiStatus>("ai_set", { backend: probe.available[0] });
+      // Use a backend already configured in config.json (e.g. "custom" with aiCommand).
+      // Only auto-pick the first available CLI when nothing is configured yet.
+      const backend = ai?.backend ?? probe.available[0];
+      const s = await invoke<AiStatus>("ai_set", { backend });
       applyAiStatus(s);
-      setStatus(`AI connected (${probe.version ?? probe.available[0]})`);
+      setAiConnected(true);
+      setStatus(`AI connected (${backend})`);
     } catch (e) {
       setStatus(`AI: ${String(e)}`);
     }
@@ -474,8 +480,8 @@ export default function App() {
             className={"aibtn" + (ai?.backend ? " on" : "")}
             onClick={() => void toggleAi()}
             title={
-              ai?.backend
-                ? `AI connected: ${ai.backend} — click to disconnect`
+              aiConnected
+                ? `AI connected: ${ai?.backend} — click to disconnect`
                 : "Connect AI — off by default; nothing is ever sent while off"
             }
           >
